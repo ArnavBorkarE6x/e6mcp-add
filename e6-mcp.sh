@@ -147,13 +147,23 @@ elif printf '%s' "$PBODY" | grep -qi "suspend"; then  fail "workspace suspended 
 else fail "HTTP $PCODE — $PBODY"; retry_or_quit 2
 fi
 
-SERVER_JSON="{\"type\":\"http\",\"url\":\"$MCP_URL\",\"headers\":{\"Authorization\":\"Bearer $SID\",\"cluster-name\":\"$CLUSTER\"}}"
+# Claude Desktop (>= 1.85) only accepts STDIO servers in its config file — it rejects
+# {type:http,...} as "not a valid MCP server configuration" and skips it. So for Desktop
+# we bridge the remote HTTP endpoint through `npx mcp-remote`. The header VALUES go in env
+# (Desktop mangles args that contain spaces, e.g. "Bearer xxx"); mcp-remote then expands
+# ${AUTH_HEADER}/${CLUSTER_NAME} into the real headers at launch. The \${...} below is
+# written LITERALLY into the JSON (escaped so the shell doesn't expand it here).
+DESKTOP_JSON="{\"command\":\"npx\",\"args\":[\"-y\",\"mcp-remote\",\"$MCP_URL\",\"--header\",\"Authorization:\${AUTH_HEADER}\",\"--header\",\"cluster-name:\${CLUSTER_NAME}\"],\"env\":{\"AUTH_HEADER\":\"Bearer $SID\",\"CLUSTER_NAME\":\"$CLUSTER\"}}"
 
 # ---------- configure clients (only reached when the endpoint is reachable) ----------
 setup_cc() {
   step "Adding to Claude Code"
   command -v claude >/dev/null 2>&1 || { fail "'claude' CLI not found — skipped"; return; }
-  claude mcp remove "$NAME" -s local >/dev/null 2>&1 || true
+  # Delete any existing entry first (across all scopes) so a rerun is a clean re-add.
+  for _scope in local project user; do
+    claude mcp remove "$NAME" -s "$_scope" >/dev/null 2>&1 || true
+  done
+  claude mcp remove "$NAME" >/dev/null 2>&1 || true
   claude mcp add --transport http "$NAME" "$MCP_URL" \
     --header "Authorization: Bearer $SID" --header "cluster-name: $CLUSTER" >/dev/null
   ok "$NAME added"
@@ -161,11 +171,22 @@ setup_cc() {
 setup_desktop() {
   step "Writing Claude Desktop config"
   command -v plutil >/dev/null 2>&1 || { fail "'plutil' not found (macOS only) — skipped"; return; }
+  command -v npx   >/dev/null 2>&1 || { fail "'npx' (Node.js) not found — the mcp-remote bridge needs it; install Node, then re-run"; return; }
   local cfg="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+  # Desktop OWNS this file while running: it rewrites the whole document (preferences +
+  # mcpServers) on quit, clobbering any edit we make underneath it — and a concurrent
+  # write can even corrupt the file. So fully quit Desktop BEFORE touching the config.
+  if pgrep -x "Claude" >/dev/null 2>&1; then
+    osascript -e 'quit app "Claude"' >/dev/null 2>&1 || true
+    for _i in 1 2 3 4 5 6 7 8 9 10; do pgrep -x "Claude" >/dev/null 2>&1 || break; sleep 0.5; done
+    if pgrep -x "Claude" >/dev/null 2>&1; then pkill -9 -x "Claude" 2>/dev/null || true; sleep 1; fi
+  fi
   mkdir -p "$(dirname "$cfg")"; [[ -f "$cfg" ]] || echo '{}' >"$cfg"
   plutil -extract mcpServers raw "$cfg" >/dev/null 2>&1 || plutil -insert mcpServers -json '{}' "$cfg"
-  plutil -replace "mcpServers.$NAME" -json "$SERVER_JSON" "$cfg"
-  ok "config updated (⌘Q + reopen to load)"
+  # Delete any existing entry first so a rerun is a clean re-add.
+  plutil -remove "mcpServers.$NAME" "$cfg" >/dev/null 2>&1 || true
+  plutil -insert "mcpServers.$NAME" -json "$DESKTOP_JSON" "$cfg"
+  ok "config updated (Desktop quit — just reopen it)"
 }
 case "$TARGET" in
   claude-code)    setup_cc;;
@@ -184,6 +205,6 @@ cat <<'DONE'
 DONE
 printf '%s' "$X"
 echo "   ${D}•${X} Claude Code   → ready now"
-if [[ "$TARGET" != "claude-code" ]]; then echo "   ${D}•${X} Claude Desktop → fully quit (⌘Q) & reopen"; fi
+if [[ "$TARGET" != "claude-code" ]]; then echo "   ${D}•${X} Claude Desktop → was quit for you; just reopen it (first launch fetches mcp-remote, ~5s)"; fi
 echo "   ${D}•${X} Try: \"list the catalogs in e6data\""
 echo "   ${D}token expires ~5h — re-run to refresh.${X}"

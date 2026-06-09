@@ -1,6 +1,8 @@
 # e6data MCP Connector Setup
 
-Interactive wizard to connect **Claude Code** / **Claude Desktop** to your e6data cluster's MCP server. Zero install — just `curl`, `sed`, `plutil` (macOS), and the `claude` CLI.
+Interactive wizard to connect **Claude Code** / **Claude Desktop** to your e6data cluster's MCP server.
+
+Minimal deps: `curl`, `sed`, and the `claude` CLI. The **Claude Desktop** path additionally needs `plutil` (built into macOS) and **Node.js** (`npx`) — Desktop only accepts STDIO servers, so the wizard bridges the remote endpoint through `mcp-remote`.
 
 ## Run it
 
@@ -28,4 +30,4 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/ArnavBorkarE6x/e6mcp-add
 ## Notes
 
 - The session token expires in ~5h — just re-run to refresh.
-- After a Claude Desktop change, fully quit (⌘Q) and reopen to load it.
+- The wizard quits Claude Desktop for you before writing its config — just reopen it afterward (first launch fetches `mcp-remote`, ~5s).

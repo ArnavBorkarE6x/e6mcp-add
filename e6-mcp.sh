@@ -7,6 +7,9 @@
 #   ./add-e6-mcp.sh --host URL --user EMAIL --password PAT --cluster NAME [--target both]
 #   --target: claude-code | claude-desktop | both (default both)
 #
+# The --host value is normalized: scheme defaults to https:// if omitted, and
+# trailing slashes or a pasted /api/... path are stripped automatically.
+#
 # On any failure it offers to restart from the top (re-enter all details).
 # Zero install: curl, sed, plutil (macOS), claude CLI. No python / node / mcp-remote.
 #
@@ -48,6 +51,30 @@ retry_or_quit() {   # $1 = exit code if the user declines
   exit "${1:-1}"
 }
 
+# Normalize a user-supplied host into a clean base origin so that
+# "$HOST/api/v2/mcp" and "$HOST/api/v1/authenticate" always compose cleanly.
+# Handles the common paste variations:
+#   "cluster.example.com"            -> https://cluster.example.com
+#   "https://cluster.example.com/"   -> https://cluster.example.com
+#   " https://host//api/v2/mcp "     -> https://host
+#   "HTTP://host"                    -> http://host   (explicit scheme kept)
+normalize_host() {
+  local h="$1" lower
+  h="${h#"${h%%[![:space:]]*}"}"            # ltrim whitespace
+  h="${h%"${h##*[![:space:]]}"}"            # rtrim whitespace
+  h="${h#[\"\']}"; h="${h%[\"\']}"          # strip one layer of surrounding quotes
+  while [[ "$h" == */ ]]; do h="${h%/}"; done   # drop trailing slashes
+  h="${h%/api/v2/mcp}"                      # peel a pasted MCP URL back to the origin
+  h="${h%/api/v1/authenticate}"             # peel a pasted auth URL back to the origin
+  while [[ "$h" == */ ]]; do h="${h%/}"; done
+  lower="$(printf '%s' "$h" | tr '[:upper:]' '[:lower:]')"
+  case "$lower" in
+    http://*|https://*) ;;                  # explicit scheme — leave it alone
+    *) h="https://${h#//}" ;;               # no scheme (or //host) — default to https
+  esac
+  printf '%s' "$h"
+}
+
 # ---------- flags ----------
 HOST="" ; USER_EMAIL="" ; PASSWORD="" ; CLUSTER="" ; NAME="e6data" ; TARGET=""
 while [[ $# -gt 0 ]]; do
@@ -87,7 +114,7 @@ ask       HOST        "Cluster host URL"
 ask       USER_EMAIL  "e6 email"
 asksecret PASSWORD    "PAT / password"
 ask       CLUSTER     "Cluster name"
-HOST="${HOST%/}"
+HOST="$(normalize_host "$HOST")"
 
 if [[ -z "$TARGET" ]]; then
   if [[ -t 0 ]]; then

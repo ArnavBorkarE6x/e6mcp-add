@@ -29,5 +29,6 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/ArnavBorkarE6x/e6mcp-add
 
 ## Notes
 
+- Paste the cluster host however you have it — with or without `https://`, with trailing slashes, or even the full `/api/v2/mcp` URL. The wizard normalizes it to the correct base.
 - The session token expires in ~5h — just re-run to refresh.
 - The wizard quits Claude Desktop for you before writing its config — just reopen it afterward (first launch fetches `mcp-remote`, ~5s).

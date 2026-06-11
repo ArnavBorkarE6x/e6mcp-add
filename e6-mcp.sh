@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
 #
-# add-e6-mcp.sh — interactive wizard to connect Claude Code / Claude Desktop
+# add-e6-mcp.sh — interactive wizard to connect Claude Code / Claude Desktop / Codex
 # to your e6data cluster's MCP server.
 #
 # Run it bare for the wizard, or pass flags to run headless:
 #   ./add-e6-mcp.sh --host URL --user EMAIL --password PAT --cluster NAME [--target both]
-#   --target: claude-code | claude-desktop | both (default both)
+#   --target: claude-code | claude-desktop | codex | both | all (default both)
+#             both = Claude Code + Claude Desktop; all = Claude + Codex
 #
 # The --host value is normalized: scheme defaults to https:// if omitted, and
 # trailing slashes or a pasted /api/... path are stripped automatically.
 #
 # On any failure it offers to restart from the top (re-enter all details).
-# Zero install: curl, sed, plutil (macOS), claude CLI. No python / node / mcp-remote.
+# Zero install: curl, sed, plutil (macOS), claude CLI, codex CLI. No python.
 #
 set -euo pipefail
 
@@ -32,7 +33,7 @@ banner() {
 |  __/ (_) | (_| | (_| | || (_| |
  \___|\___/ \__,_|\__,_|\__\__,_|
 
-   MCP Connector Setup · Connect Claude to your e6 cluster
+   MCP Connector Setup · Connect Claude/Codex to your e6 cluster
 
 ART
   printf '%s' "$X"
@@ -108,7 +109,7 @@ asksecret() {  # var  label
   read -r -s -p "   ${B}▸${X} $_label: " "$_n"; echo
 }
 
-echo "   Let's connect Claude to your e6 cluster."
+echo "   Let's connect Claude/Codex to your e6 cluster."
 echo
 ask       HOST        "Cluster host URL"
 ask       USER_EMAIL  "e6 email"
@@ -121,9 +122,11 @@ if [[ -z "$TARGET" ]]; then
     echo "   ${B}▸${X} Add to:"
     echo "       1) Claude Code"
     echo "       2) Claude Desktop"
-    echo "       3) Both ${D}[default]${X}"
+    echo "       3) Claude Code + Claude Desktop ${D}[default]${X}"
+    echo "       4) Codex"
+    echo "       5) All"
     read -r -p "     choice [3]: " _t
-    case "${_t:-3}" in 1) TARGET=claude-code;; 2) TARGET=claude-desktop;; *) TARGET=both;; esac
+    case "${_t:-3}" in 1) TARGET=claude-code;; 2) TARGET=claude-desktop;; 4) TARGET=codex;; 5) TARGET=all;; *) TARGET=both;; esac
   else
     TARGET=both
   fi
@@ -215,11 +218,23 @@ setup_desktop() {
   plutil -insert "mcpServers.$NAME" -json "$DESKTOP_JSON" "$cfg"
   ok "config updated (Desktop quit — just reopen it)"
 }
+setup_codex() {
+  step "Adding to Codex"
+  command -v codex >/dev/null 2>&1 || { fail "'codex' CLI not found — skipped"; return; }
+  command -v npx   >/dev/null 2>&1 || { fail "'npx' (Node.js) not found — the mcp-remote bridge needs it; install Node, then re-run"; return; }
+  # Delete any existing entry first so a rerun is a clean re-add.
+  codex mcp remove "$NAME" >/dev/null 2>&1 || true
+  codex mcp add "$NAME" -- npx -y mcp-remote "$MCP_URL" \
+    --header "Authorization: Bearer $SID" --header "cluster-name: $CLUSTER" >/dev/null
+  ok "$NAME added"
+}
 case "$TARGET" in
   claude-code)    setup_cc;;
   claude-desktop) setup_desktop;;
+  codex)          setup_codex;;
   both)           setup_cc; setup_desktop;;
-  *) echo "${R}ERROR:${X} unknown --target '$TARGET' (claude-code|claude-desktop|both)" >&2; exit 1;;
+  all)            setup_cc; setup_desktop; setup_codex;;
+  *) echo "${R}ERROR:${X} unknown --target '$TARGET' (claude-code|claude-desktop|codex|both|all)" >&2; exit 1;;
 esac
 
 # ---------- success ----------
@@ -231,7 +246,8 @@ cat <<'DONE'
    ╰───────────────────────────────────────────────╯
 DONE
 printf '%s' "$X"
-echo "   ${D}•${X} Claude Code   → ready now"
-if [[ "$TARGET" != "claude-code" ]]; then echo "   ${D}•${X} Claude Desktop → was quit for you; just reopen it (first launch fetches mcp-remote, ~5s)"; fi
+if [[ "$TARGET" == "claude-code" || "$TARGET" == "both" || "$TARGET" == "all" ]]; then echo "   ${D}•${X} Claude Code   → ready now"; fi
+if [[ "$TARGET" == "claude-desktop" || "$TARGET" == "both" || "$TARGET" == "all" ]]; then echo "   ${D}•${X} Claude Desktop → was quit for you; just reopen it (first launch fetches mcp-remote, ~5s)"; fi
+if [[ "$TARGET" == "codex" || "$TARGET" == "all" ]]; then echo "   ${D}•${X} Codex         → restart Codex to load the refreshed MCP"; fi
 echo "   ${D}•${X} Try: \"list the catalogs in e6data\""
 echo "   ${D}token expires ~5h — re-run to refresh.${X}"

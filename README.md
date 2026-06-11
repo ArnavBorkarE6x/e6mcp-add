@@ -1,8 +1,8 @@
 # e6data MCP Connector Setup
 
-Interactive wizard to connect **Claude Code** / **Claude Desktop** to your e6data cluster's MCP server.
+Interactive wizard to connect **Claude Code**, **Claude Desktop**, and **Codex** to your e6data cluster's MCP server.
 
-Minimal deps: `curl`, `sed`, and the `claude` CLI. The **Claude Desktop** path additionally needs `plutil` (built into macOS) and **Node.js** (`npx`) — Desktop only accepts STDIO servers, so the wizard bridges the remote endpoint through `mcp-remote`.
+Minimal deps: `curl` + `sed`, plus the CLI for whatever you're configuring (`claude` and/or `codex`). The **Claude Desktop** and **Codex** paths also need **Node.js** (`npx`) — both take STDIO servers, so the wizard bridges the remote endpoint through `mcp-remote` (Desktop also uses `plutil`, built into macOS). Claude Code connects directly over HTTP, no Node required.
 
 ## Run it
 
@@ -24,7 +24,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/ArnavBorkarE6x/e6mcp-add
   --user you@example.com \
   --password YOUR_PAT \
   --cluster YOUR_CLUSTER \
-  --target both        # claude-code | claude-desktop | both
+  --target both        # claude-code | claude-desktop | codex | both | all
 ```
 
 ## Notes
@@ -32,3 +32,5 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/ArnavBorkarE6x/e6mcp-add
 - Paste the cluster host however you have it — with or without `https://`, with trailing slashes, or even the full `/api/v2/mcp` URL. The wizard normalizes it to the correct base.
 - The session token expires in ~5h — just re-run to refresh.
 - The wizard quits Claude Desktop for you before writing its config — just reopen it afterward (first launch fetches `mcp-remote`, ~5s).
+- Configuring Codex? Restart it afterward to load the refreshed MCP server.
+- `--target both` = Claude Code + Claude Desktop; `--target all` adds Codex too.

@@ -4,8 +4,8 @@
 # to your e6data cluster's MCP server.
 #
 # Run it bare for the wizard, or pass flags to run headless:
-#   ./add-e6-mcp.sh --host URL --user EMAIL --password PAT --cluster NAME [--target both]
-#   --target: claude-code | claude-desktop | codex | both | all (default both)
+#   ./add-e6-mcp.sh --cluster NAME --host URL --user EMAIL --password PAT [--target all]
+#   --target: claude-code | claude-desktop | codex | both | all (default all)
 #             both = Claude Code + Claude Desktop; all = Claude + Codex
 #
 # The --host value is normalized: scheme defaults to https:// if omitted, and
@@ -111,10 +111,10 @@ asksecret() {  # var  label
 
 echo "   Let's connect Claude/Codex to your e6 cluster."
 echo
+ask       CLUSTER     "Cluster name"
 ask       HOST        "Cluster host URL"
 ask       USER_EMAIL  "e6 email"
 asksecret PASSWORD    "PAT / password"
-ask       CLUSTER     "Cluster name"
 HOST="$(normalize_host "$HOST")"
 
 if [[ -z "$TARGET" ]]; then
@@ -122,13 +122,13 @@ if [[ -z "$TARGET" ]]; then
     echo "   ${B}▸${X} Add to:"
     echo "       1) Claude Code"
     echo "       2) Claude Desktop"
-    echo "       3) Claude Code + Claude Desktop ${D}[default]${X}"
+    echo "       3) Claude Code + Claude Desktop"
     echo "       4) Codex"
-    echo "       5) All"
-    read -r -p "     choice [3]: " _t
-    case "${_t:-3}" in 1) TARGET=claude-code;; 2) TARGET=claude-desktop;; 4) TARGET=codex;; 5) TARGET=all;; *) TARGET=both;; esac
+    echo "       5) All ${D}[default]${X}"
+    read -r -p "     choice [5]: " _t
+    case "${_t:-5}" in 1) TARGET=claude-code;; 2) TARGET=claude-desktop;; 3) TARGET=both;; 4) TARGET=codex;; *) TARGET=all;; esac
   else
-    TARGET=both
+    TARGET=all
   fi
 fi
 
@@ -146,9 +146,9 @@ MCP_URL="$HOST/api/v2/mcp"
 if [[ -t 0 ]]; then
   echo
   echo "   ${D}Review:${X}"
+  printf "     cluster  %s\n" "$CLUSTER"
   printf "     host     %s\n" "$HOST"
   printf "     user     %s\n" "$USER_EMAIL"
-  printf "     cluster  %s\n" "$CLUSTER"
   printf "     target   %s\n" "$TARGET"
   read -r -p "   Proceed? ${D}[Y/n]${X}: " _c
   case "${_c:-y}" in [nN]*) echo "   aborted."; exit 0;; esac

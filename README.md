@@ -10,7 +10,7 @@ Minimal deps: `curl` + `sed`, plus the CLI for whatever you're configuring (`cla
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/ArnavBorkarE6x/e6mcp-add/main/e6-mcp.sh)"
 ```
 
-It will prompt for your cluster host, cluster name, e6 email, and PAT/password, then ask which client(s) to set up (default: **All**) and wire up the MCP server for you.
+It will prompt for your cluster host, e6 email, cluster name, and PAT/password, then ask which client(s) to set up (default: **All**) and wire up the MCP server for you.
 
 > Use the `bash -c "$(curl …)"` form above, **not** `curl … | bash`. The wizard reads your answers from the terminal; piping into `bash` takes over stdin and the prompts fail.
 
@@ -21,8 +21,8 @@ Pass everything as flags. The `e6-mcp` placeholder just fills `$0` so the flags 
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/ArnavBorkarE6x/e6mcp-add/main/e6-mcp.sh)" e6-mcp \
   --host https://your-cluster-host \
-  --cluster YOUR_CLUSTER \
   --user you@example.com \
+  --cluster YOUR_CLUSTER \
   --password YOUR_PAT \
   --target all         # claude-code | claude-desktop | codex | both | all (default all)
 ```

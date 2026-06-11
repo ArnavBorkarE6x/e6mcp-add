@@ -4,7 +4,7 @@
 # to your e6data cluster's MCP server.
 #
 # Run it bare for the wizard, or pass flags to run headless:
-#   ./add-e6-mcp.sh --host URL --cluster NAME --user EMAIL --password PAT [--target all]
+#   ./add-e6-mcp.sh --host URL --user EMAIL --cluster NAME --password PAT [--target all]
 #   --target: claude-code | claude-desktop | codex | both | all (default all)
 #             both = Claude Code + Claude Desktop; all = Claude + Codex
 #
@@ -112,8 +112,8 @@ asksecret() {  # var  label
 echo "   Let's connect Claude/Codex to your e6 cluster."
 echo
 ask       HOST        "Cluster host URL"
-ask       CLUSTER     "Cluster name"
 ask       USER_EMAIL  "e6 email"
+ask       CLUSTER     "Cluster name"
 asksecret PASSWORD    "PAT / password"
 HOST="$(normalize_host "$HOST")"
 
@@ -147,8 +147,8 @@ if [[ -t 0 ]]; then
   echo
   echo "   ${D}Review:${X}"
   printf "     host     %s\n" "$HOST"
-  printf "     cluster  %s\n" "$CLUSTER"
   printf "     user     %s\n" "$USER_EMAIL"
+  printf "     cluster  %s\n" "$CLUSTER"
   printf "     target   %s\n" "$TARGET"
   read -r -p "   Proceed? ${D}[Y/n]${X}: " _c
   case "${_c:-y}" in [nN]*) echo "   aborted."; exit 0;; esac
